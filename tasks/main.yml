@@ -1,0 +1,153 @@
+---
+
+# (c) Wong Hoi Sing Edison <hswong3i@pantarei-design.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: include default variables
+  include_vars: "../vars/main.yml"
+
+- name: include release specific variables
+  include_vars: "{{ lookup('first_found', _params) }}"
+  vars:
+    _params:
+      files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+        - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      paths:
+        - "../vars"
+  ignore_errors: true
+
+- name: include release specific tasks
+  include_tasks: "{{ lookup('first_found', _params) }}"
+  vars:
+    _params:
+      files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+        - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      paths:
+        - "."
+  ignore_errors: true
+
+- name: groupadd
+  group:
+    name: "{{ item.name }}"
+    system: true
+    state: "present"
+  loop:
+    - { name: "gitlab-www" }
+    - { name: "git" }
+    - { name: "gitlab-redis" }
+    - { name: "gitlab-psql" }
+    - { name: "mattermost" }
+    - { name: "registry" }
+    - { name: "gitlab-prometheus" }
+    - { name: "gitlab-consul" }
+
+- name: useradd
+  user:
+    name: "{{ item.name }}"
+    group: "{{ item.group }}"
+    home: "{{ item.home }}"
+    shell: "{{ item.shell }}"
+    system: true
+    create_home: false
+    state: "present"
+  loop:
+    - { name: "gitlab-www", group: "gitlab-www", home: "/var/opt/gitlab/nginx", shell: "/bin/false" }
+    - { name: "git", group: "git", home: "/var/opt/gitlab", shell: "/bin/sh" }
+    - { name: "gitlab-redis", group: "gitlab-redis", home: "/var/opt/gitlab/redis", shell: "/bin/false" }
+    - { name: "gitlab-psql", group: "gitlab-psql", home: "/var/opt/gitlab/postgresql", shell: "/bin/sh" }
+    - { name: "mattermost", group: "mattermost", home: "/var/opt/gitlab/mattermost", shell: "/bin/sh" }
+    - { name: "registry", group: "registry", home: "/var/opt/gitlab/registry", shell: "/bin/sh" }
+    - { name: "gitlab-prometheus", group: "gitlab-prometheus", home: "/var/opt/gitlab/prometheus", shell: "/bin/sh" }
+    - { name: "gitlab-consul", group: "gitlab-consul", home: "/var/opt/gitlab/consul", shell: "/bin/sh" }
+
+- name: prepare directories
+  file:
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+    state: "{{ item.state | default('directory') }}"
+  loop:
+    - { dest: "/etc/gitlab", mode: "0775" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/recipes" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/resources" }
+    - { dest: "/var/log/gitlab", owner: "git", group: "git" }
+    - { dest: "/var/opt/gitlab", owner: "git", group: "git" }
+    - { dest: "/var/opt/gitlab/consul", owner: "gitlab-consul", group: "gitlab-consul" }
+    - { dest: "/var/opt/gitlab/mattermost", owner: "mattermost", group: "mattermost" }
+    - { dest: "/var/opt/gitlab/nginx", owner: "gitlab-www", group: "gitlab-www" }
+    - { dest: "/var/opt/gitlab/postgresql", owner: "gitlab-psql", group: "gitlab-psql" }
+    - { dest: "/var/opt/gitlab/prometheus", owner: "gitlab-prometheus", group: "gitlab-prometheus" }
+    - { dest: "/var/opt/gitlab/redis", owner: "gitlab-redis", group: "gitlab-redis" }
+    - { dest: "/var/opt/gitlab/registry", owner: "registry", group: "registry" }
+
+- name: pip install
+  environment:
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  vars:
+    ansible_python_interpreter: "python3"
+  pip:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    version: "{{ item.version | default(None) or omit }}"
+    extra_args: "--prefix=/usr/local --upgrade {{ item.extra_args | default(None) }}"
+    executable: "pip3"
+  loop: "{{ _pip }}"
+  register: result
+  until: result is succeeded
+  changed_when: result is not succeeded
+
+- name: copy templates
+  template:
+    dest: "{{ item.dest }}"
+    src: "{{ item.src | default('./templates' + item.dest + '.j2') }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { dest: "/etc/gitlab/gitlab.rb" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/recipes/sysctl.rb" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/resources/gitlab_sysctl.rb" }
+
+- name: prepare files
+  file:
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0644') }}"
+    state: "{{ item.state | default('file') }}"
+  loop:
+    - { dest: "/etc/gitlab/gitlab.rb" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/recipes/sysctl.rb" }
+    - { dest: "/opt/gitlab/embedded/cookbooks/package/resources/gitlab_sysctl.rb" }
+
+- name: flush handlers
+  meta: flush_handlers
+
+- name: gitlab-ctl start
+  shell: |
+    set -o pipefail
+    gitlab-ctl start
+  args:
+    executable: "/bin/bash"
+  changed_when: false
+  ignore_errors: true
