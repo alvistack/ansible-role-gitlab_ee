@@ -1,6 +1,6 @@
 # Ansible Role for GitLab EE
 
-[![Travis](https://img.shields.io/travis/com/alvistack/ansible-role-gitlab_ee.svg)](https://travis-ci.com/alvistack/ansible-role-gitlab_ee)
+[![Gitlab pipeline status](https://img.shields.io/gitlab/pipeline/alvistack/ansible-role-gitlab_ee/master)](https://gitlab.com/alvistack/ansible-role-gitlab_ee/-/pipelines)
 [![GitHub release](https://img.shields.io/github/release/alvistack/ansible-role-gitlab_ee.svg)](https://github.com/alvistack/ansible-role-gitlab_ee/releases)
 [![GitHub license](https://img.shields.io/github/license/alvistack/ansible-role-gitlab_ee.svg)](https://github.com/alvistack/ansible-role-gitlab_ee/blob/master/LICENSE)
 [![Ansible Role](https://img.shields.io/badge/galaxy-alvistack.gitlab_ee-blue.svg)](https://galaxy.ansible.com/alvistack/gitlab_ee)
