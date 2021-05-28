@@ -44,4 +44,5 @@
   register: result
   until: result is succeeded
   notify:
-    - gitlab_ee | gitlab-ctl restart
+    - gitlab_ee | gitlab-ctl reconfigure
+    - gitlab_ee | systemctl restart gitlab-runsvdir.service
