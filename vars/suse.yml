@@ -30,7 +30,7 @@ _yum_repository:
   - file: "gitlab-ee"
     name: "gitlab-ee"
     description: "GitLab EE"
-    baseurl: "http://packages.gitlab.com/gitlab/gitlab-ee/opensuse/15.2/x86_64"
+    baseurl: "http://packages.gitlab.com/gitlab/gitlab-ee/opensuse/15.3/x86_64"
     enabled: true
     priority: "2"
     module_hotfixes: true
